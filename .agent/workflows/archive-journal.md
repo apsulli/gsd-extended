@@ -1,5 +1,6 @@
 ---
 description: Archive old JOURNAL.md entries to keep context slim
+version: "1.0.0"
 ---
 
 # /archive-journal Workflow

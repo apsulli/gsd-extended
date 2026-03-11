@@ -1,5 +1,6 @@
 ---
 description: Show recent GSD changes and new features
+version: "1.0.0"
 ---
 
 # /whats-new Workflow

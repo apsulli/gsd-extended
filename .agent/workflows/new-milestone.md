@@ -1,6 +1,7 @@
 ---
 description: Create a new milestone with phases
 argument-hint: "<milestone-name>"
+version: "1.0.0"
 ---
 
 # /new-milestone Workflow

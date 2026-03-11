@@ -1,6 +1,7 @@
 ---
 description: List assumptions made during phase planning
 argument-hint: "<phase-number>"
+version: "1.0.0"
 ---
 
 # /list-phase-assumptions Workflow

@@ -1,6 +1,7 @@
 ---
 description: List all pending todo items
 argument-hint: "[--all] [--priority high|medium|low]"
+version: "1.0.0"
 ---
 
 # /check-todos Workflow

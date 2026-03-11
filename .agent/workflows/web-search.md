@@ -1,6 +1,7 @@
 ---
 description: Search the web for information to inform decisions
 argument-hint: "<query> [--domain <site>]"
+version: "1.0.0"
 ---
 
 # /web-search Workflow

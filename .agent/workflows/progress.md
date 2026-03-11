@@ -1,5 +1,6 @@
 ---
 description: Show current position in roadmap and next steps
+version: "1.0.0"
 ---
 
 # /progress Workflow

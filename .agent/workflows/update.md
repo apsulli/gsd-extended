@@ -1,5 +1,6 @@
 ---
 description: Update GSD to the latest version from GitHub
+version: "1.0.0"
 ---
 
 # /update Workflow

@@ -1,6 +1,7 @@
 ---
 description: Audit a milestone for quality and completeness
 argument-hint: "[milestone-name]"
+version: "1.0.0"
 ---
 
 # /audit-milestone Workflow

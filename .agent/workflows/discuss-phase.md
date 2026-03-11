@@ -1,5 +1,6 @@
 ---
 description: Discuss a phase before planning (clarify scope and approach)
+version: "1.0.0"
 ---
 
 # /discuss-phase Workflow

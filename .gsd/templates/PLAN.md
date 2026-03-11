@@ -1,25 +1,27 @@
 # PLAN.md Template
 
-> Copy this template when creating execution plans.
+> Template for `.gsd/phases/{N}/{N}.{M}-PLAN.md` — executable phase plans.
 >
-> **File naming convention:** `{phase}.{planNumber}-PLAN.md`
+> **File naming convention:** `{N}.{M}-PLAN.md`
 > Example: `3.2-PLAN.md` for Phase 3, Plan 2
+
+---
+
+## File Template
 
 ```markdown
 ---
 phase: {N}
 plan: {M}
-wave: {W}
-gap_closure: false
+wave: 1
 ---
 
-# Plan {N}.{M}: {Descriptive Name}
+# Plan {N}.{M}: {Plan Name}
 
 ## Objective
-{One paragraph explaining what this plan delivers and why it matters}
+{What this plan delivers and why}
 
 ## Context
-Load these files for context:
 - .gsd/SPEC.md
 - .gsd/ARCHITECTURE.md
 - {relevant source files}
@@ -27,59 +29,43 @@ Load these files for context:
 ## Tasks
 
 <task type="auto">
-  <name>{Clear, specific task name}</name>
-  <files>
-    {exact/file/path1.ext}
-    {exact/file/path2.ext}
-  </files>
+  <name>{Task name}</name>
+  <files>{exact file paths}</files>
   <action>
     {Specific implementation instructions}
-    
-    Steps:
-    1. {Step 1}
-    2. {Step 2}
-    3. {Step 3}
-    
-    AVOID: {common mistake} because {reason}
-    USE: {preferred approach} because {reason}
+    - What to do
+    - What to avoid and WHY
   </action>
-  <verify>
-    {Executable command or check}
-    Example: npm test -- --testNamePattern="auth"
-    Example: curl -X POST localhost:3000/api/login
-  </verify>
-  <done>
-    {Measurable acceptance criteria}
-    Example: Valid credentials → 200 + Set-Cookie, invalid → 401
-  </done>
+  <verify>{Command to prove task complete}</verify>
+  <done>{Measurable acceptance criteria}</done>
 </task>
 
 <task type="auto">
   <name>{Task 2 name}</name>
-  <files>{files}</files>
+  <files>{exact file paths}</files>
   <action>{instructions}</action>
   <verify>{command}</verify>
   <done>{criteria}</done>
 </task>
 
-## Must-Haves
-After all tasks complete, verify:
-- [ ] {Must-have 1 — derived from phase goal}
-- [ ] {Must-have 2}
-
 ## Success Criteria
-- [ ] All tasks verified passing
-- [ ] Must-haves confirmed
-- [ ] No regressions in tests
+- [ ] {Measurable outcome 1}
+- [ ] {Measurable outcome 2}
 ```
+
+---
 
 ## Task Types
 
-| Type | Use For | Behavior |
+| Type | Use For | Autonomy |
 |------|---------|----------|
 | `auto` | Everything Claude can do independently | Fully autonomous |
 | `checkpoint:human-verify` | Visual/functional verification | Pauses for user |
 | `checkpoint:decision` | Implementation choices | Pauses for user |
+
+**Automation-first rule:** If Claude CAN do it, Claude MUST do it. Checkpoints are for verification AFTER automation.
+
+---
 
 ## Wave Assignment
 
@@ -91,3 +77,12 @@ After all tasks complete, verify:
 
 Plans in the same wave can run in parallel.
 Later waves depend on earlier waves.
+
+---
+
+## Guidelines
+
+- **2-3 tasks max per plan** — aggressive atomicity
+- Files must be exact paths, not patterns
+- Verify commands must be executable
+- Done criteria must be measurable (yes/no pass/fail)

@@ -1,6 +1,7 @@
 ---
 description: Capture a todo item for later
 argument-hint: "<description> [--priority high|medium|low]"
+version: "1.0.0"
 ---
 
 # /add-todo Workflow
@@ -10,7 +11,7 @@ Quickly capture an idea, task, or issue without interrupting current work flow.
 </objective>
 
 <context>
-**Item:** $ARGUMENTS (the todo description)
+**Item:** $ARGUMENTS (required - the todo description)
 
 **Flags:**
 - `--priority high|medium|low` — Set priority (default: medium)

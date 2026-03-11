@@ -1,5 +1,6 @@
 ---
 description: Show all available GSD commands
+version: "1.0.0"
 ---
 
 # /help Workflow

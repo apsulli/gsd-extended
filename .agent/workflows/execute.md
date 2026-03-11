@@ -1,5 +1,7 @@
 ---
-description: The Engineer — Execute a specific phase with focused context
+description: The Engineer — Execute a specific phase with focused context, including gap closure re-verification tracking
+argument-hint: "<phase-number> [--gaps-only]"
+version: "1.1.0"
 ---
 
 # /execute Workflow
@@ -14,6 +16,7 @@ You are a GSD executor orchestrator. You manage wave-based parallel execution of
 - Spawn focused execution for each plan
 - Verify phase goal after all plans complete
 - Update roadmap and state on completion
+- Handle gap closure re-verification workflow
   </role>
 
 <objective>
@@ -221,7 +224,159 @@ After all waves complete:
 
 ---
 
-## 8. Update Roadmap and State
+## 8. Handle Post-Execution Verification
+
+### 8a. If `--gaps-only` flag was used:
+
+**Check for existing VERIFICATION.md:**
+
+```bash
+test -f ".gsd/phases/{phase}/VERIFICATION.md" && echo "exists" || echo "not found"
+```
+
+**If VERIFICATION.md exists:**
+
+1. Read previous verdict
+2. If previous was FAIL with gaps:
+
+   **Prompt for re-verification:**
+   ```
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    GSD ► GAP CLOSURE COMPLETE
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   
+   Gap closure execution complete.
+   
+   Re-verification recommended to confirm all issues resolved.
+   
+   Run: /verify {N}
+   
+   ───────────────────────────────────────────────────────
+   ```
+
+3. **Update STATE.md:**
+   ```markdown
+   ## Current Position
+   - **Phase**: {N}
+   - **Status**: ⏳ Awaiting re-verification
+   - **Note**: Gap closure plans executed. Verification required.
+   ```
+
+**Skip to step 11 (commit only).**
+
+### 8b. Regular execution flow:
+
+**Check for existing VERIFICATION.md with FAIL verdict:**
+
+```bash
+# Check if VERIFICATION.md exists and has FAIL verdict
+grep -q "verdict: FAIL" ".gsd/phases/{phase}/VERIFICATION.md" 2>/dev/null && echo "has_failures" || echo "clean"
+```
+
+**If FAIL verdict found:**
+
+1. **Archive old verification:**
+   ```bash
+   ARCHIVE_FILE=".gsd/phases/{phase}/VERIFICATION-HISTORY.md"
+   echo -e "\n---\n\n## Archived Verification $(date +%Y-%m-%d)\n" >> "$ARCHIVE_FILE"
+   cat ".gsd/phases/{phase}/VERIFICATION.md" >> "$ARCHIVE_FILE"
+   rm ".gsd/phases/{phase}/VERIFICATION.md"
+   ```
+
+2. Note: New verification will be created fresh
+
+---
+
+## 9. Acquire Lock
+
+**PowerShell:**
+```powershell
+$lockFile = ".gsd/.lock"
+$maxRetries = 10
+$retryCount = 0
+$resource = "STATE.md,ROADMAP.md"
+$workflow = "/execute"
+
+if (-not (Test-Path ".gsd")) { New-Item -ItemType Directory -Path ".gsd" -Force | Out-Null }
+
+while (Test-Path $lockFile) {
+    $lockContent = Get-Content $lockFile -Raw -ErrorAction SilentlyContinue | ConvertFrom-Json
+    if ($lockContent -and $lockContent.expires) {
+        $expires = [datetime]::Parse($lockContent.expires)
+        if ((Get-Date) -gt $expires) {
+            Write-Warning "Lock expired (held by $($lockContent.workflow)). Stealing lock."
+            break
+        }
+    }
+    $retryCount++
+    if ($retryCount -ge $maxRetries) {
+        Write-Error "Could not acquire lock after ${maxRetries} retries"
+        exit 1
+    }
+    Start-Sleep -Milliseconds 50
+}
+
+@{
+    resource = $resource
+    workflow = $workflow
+    acquired = (Get-Date -Format "o")
+    expires = (Get-Date).AddMinutes(5).ToString("o")
+} | ConvertTo-Json | Set-Content $lockFile -Force
+```
+
+**Bash:**
+```bash
+lock_file=".gsd/.lock"
+max_retries=10
+retry_count=0
+resource="STATE.md,ROADMAP.md"
+workflow="/execute"
+
+[ -d ".gsd" ] || mkdir -p ".gsd"
+
+while [ -f "$lock_file" ]; do
+    if command -v jq >/dev/null 2>&1; then
+        expires=$(jq -r '.expires' "$lock_file" 2>/dev/null)
+        if [ -n "$expires" ] && [ "$expires" != "null" ]; then
+            now=$(date -u +%s)
+            expires_epoch=$(date -u -d "$expires" +%s 2>/dev/null || date -u -j -f "%Y-%m-%dT%H:%M:%SZ" "$expires" +%s 2>/dev/null)
+            if [ -n "$expires_epoch" ] && [ "$now" -gt "$expires_epoch" ]; then
+                lock_workflow=$(jq -r '.workflow' "$lock_file" 2>/dev/null)
+                echo "Warning: Lock expired (held by $lock_workflow). Stealing lock." >&2
+                break
+            fi
+        fi
+    fi
+    retry_count=$((retry_count + 1))
+    if [ $retry_count -ge $max_retries ]; then
+        echo "Error: Could not acquire lock after ${max_retries} retries" >&2
+        exit 1
+    fi
+    sleep 0.05
+done
+
+acquired=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+if date -u -d '+5 minutes' +%Y-%m-%dT%H:%M:%SZ >/dev/null 2>&1; then
+    expires=$(date -u -d '+5 minutes' +%Y-%m-%dT%H:%M:%SZ)
+else
+    expires=$(date -u -v+5M +%Y-%m-%dT%H:%M:%SZ)
+fi
+printf '{"resource":"%s","workflow":"%s","acquired":"%s","expires":"%s"}\n' "$resource" "$workflow" "$acquired" "$expires" > "$lock_file"
+```
+
+---
+
+## 10. Update Roadmap and State
+
+**PowerShell:**
+```powershell
+try {
+```
+
+**Bash:**
+```bash
+trap 'rm -f "$lock_file"' EXIT
+```
 
 **Update ROADMAP.md:**
 
@@ -249,18 +404,32 @@ Phase {N} executed successfully. {X} plans, {Y} tasks completed.
 1. Proceed to Phase {N+1}
 ```
 
+**PowerShell:**
+```powershell
+}
+finally {
+    if (Test-Path $lockFile) { Remove-Item $lockFile -Force }
+}
+```
+
+**Bash:**
+```bash
+# Lock released by trap EXIT
+```
+
 ---
 
-## 9. Commit Phase Completion
+## 11. Commit Phase Completion
 
 ```bash
 git add .gsd/ROADMAP.md .gsd/STATE.md
+git add .gsd/phases/{phase}/VERIFICATION-HISTORY.md 2>/dev/null || true
 git commit -m "docs(phase-{N}): complete {phase-name}"
 ```
 
 ---
 
-## 10. Offer Next Steps
+## 12. Offer Next Steps
 
 </process>
 
@@ -311,6 +480,27 @@ All phases completed and verified.
 Gap closure plans created.
 
 /execute {N} --gaps-only — execute fix plans
+
+───────────────────────────────────────────────────────
+```
+
+**Route D: Gap closure complete, awaiting re-verification**
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ GSD ► GAP CLOSURE COMPLETE ⏳
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Gap closure execution complete.
+All fix plans executed.
+
+Re-verification required to confirm issues resolved.
+
+───────────────────────────────────────────────────────
+
+▶ Next Up
+
+/verify {N} — re-verify phase after gap closure
 
 ───────────────────────────────────────────────────────
 ```

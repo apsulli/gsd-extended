@@ -1,5 +1,6 @@
 ---
 description: Initialize a new project with deep context gathering
+version: "1.0.0"
 ---
 
 # /new-project Workflow

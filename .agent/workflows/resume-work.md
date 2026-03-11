@@ -1,5 +1,6 @@
 ---
 description: Restore context from previous session
+version: "1.0.0"
 ---
 
 # /resume-work Workflow
@@ -13,6 +14,169 @@ Start a new session with full context from where we left off.
 ## 1. Load Saved State
 
 Read `.gsd/STATE.md` completely.
+
+---
+
+## 1.5. Validate State
+
+Read **STATE.md** and extract current state:
+- Current phase number
+- Current status
+- Last action
+
+**Bash:**
+```bash
+# Extract values from STATE.md
+PHASE=$(grep -E "^\\*\\*Phase\\*\\*:" .gsd/STATE.md | sed 's/.*: *//' | tr -d '\r')
+STATUS=$(grep -E "^\\*\\*Status\\*\\*:" .gsd/STATE.md | sed 's/.*: *//' | tr -d '\r')
+LAST_ACTION=$(grep -E "^\\*\\*Last Action\\*\\*:" .gsd/STATE.md | sed 's/.*: *//' | tr -d '\r')
+echo "Phase: $PHASE, Status: $STATUS, Last Action: $LAST_ACTION"
+```
+
+**PowerShell:**
+```powershell
+# Extract values from STATE.md
+$phase = (Select-String -Path ".gsd/STATE.md" -Pattern "^\*\*Phase\*\*:" | ForEach-Object { $_.Line -replace ".*:\s*", "" }).Trim()
+$status = (Select-String -Path ".gsd/STATE.md" -Pattern "^\*\*Status\*\*:" | ForEach-Object { $_.Line -replace ".*:\s*", "" }).Trim()
+$lastAction = (Select-String -Path ".gsd/STATE.md" -Pattern "^\*\*Last Action\*\*:" | ForEach-Object { $_.Line -replace ".*:\s*", "" }).Trim()
+Write-Host "Phase: $phase, Status: $status, Last Action: $lastAction"
+```
+
+### Validate Consistency
+
+**Check 1: Does phase exist in ROADMAP.md?**
+
+**Bash:**
+```bash
+# Check if phase exists in ROADMAP.md
+if ! grep -q "^## Phase $PHASE" ROADMAP.md 2>/dev/null; then
+    echo "INCONSISTENCY: Phase $PHASE in STATE.md not found in ROADMAP.md"
+fi
+```
+
+**PowerShell:**
+```powershell
+# Check if phase exists in ROADMAP.md
+$phaseHeader = "## Phase $phase"
+$phaseExists = Select-String -Path "ROADMAP.md" -Pattern "^$([regex]::Escape($phaseHeader))" -Quiet
+if (-not $phaseExists) {
+    Write-Host "INCONSISTENCY: Phase $phase in STATE.md not found in ROADMAP.md"
+}
+```
+
+**Check 2: Does phases/{N}/ directory exist?**
+
+**Bash:**
+```bash
+# Check if phase directory exists
+PHASE_NUM=$(echo "$PHASE" | grep -oE '[0-9]+')
+if [ ! -d ".gsd/phases/$PHASE_NUM" ]; then
+    echo "INCONSISTENCY: Phases directory missing: .gsd/phases/$PHASE_NUM/"
+fi
+```
+
+**PowerShell:**
+```powershell
+# Check if phase directory exists
+$phaseNum = $phase -replace '[^0-9]', ''
+$phaseDir = ".gsd/phases/$phaseNum"
+if (-not (Test-Path $phaseDir -PathType Container)) {
+    Write-Host "INCONSISTENCY: Phases directory missing: $phaseDir/"
+}
+```
+
+**Check 3: Uncommitted changes that don't match claimed state?**
+
+**Bash:**
+```bash
+# Check for uncommitted changes
+UNCOMMITTED=$(git status --porcelain)
+if [ -n "$UNCOMMITTED" ]; then
+    MODIFIED_FILES=$(git status --porcelain | wc -l)
+    echo "INCONSISTENCY: Uncommitted changes: $MODIFIED_FILES files"
+    echo "$UNCOMMITTED" | head -10
+fi
+```
+
+**PowerShell:**
+```powershell
+# Check for uncommitted changes
+$uncommitted = git status --porcelain
+if ($uncommitted) {
+    $modifiedFiles = ($uncommitted | Measure-Object).Count
+    Write-Host "INCONSISTENCY: Uncommitted changes: $modifiedFiles files"
+    $uncommitted | Select-Object -First 10
+}
+```
+
+**Check 4: STATE.md says "Paused" but no pause commit?**
+
+**Bash:**
+```bash
+# Check if STATE claims Paused but git has no pause commit
+if [[ "$STATUS" == *"Paused"* ]]; then
+    # Check for pause commit in recent history
+    if ! git log --oneline -5 | grep -qi "pause"; then
+        echo "INCONSISTENCY: STATE.md status is 'Paused' but no pause commit found in recent history"
+    fi
+fi
+```
+
+**PowerShell:**
+```powershell
+# Check if STATE claims Paused but git has no pause commit
+if ($status -match "Paused") {
+    $pauseCommit = git log --oneline -5 | Select-String -Pattern "pause" -Quiet
+    if (-not $pauseCommit) {
+        Write-Host "INCONSISTENCY: STATE.md status is 'Paused' but no pause commit found in recent history"
+    }
+}
+```
+
+### Report Inconsistencies
+
+If any inconsistencies detected:
+
+```
+⚠️ STATE INCONSISTENCIES DETECTED
+
+- Phase {N} in STATE.md not found in ROADMAP.md
+- Phases directory missing: .gsd/phases/{N}/
+- Uncommitted changes: {files}
+
+Recommend: /status to see full state, or manually fix inconsistencies
+```
+
+### Auto-Fix Minor Issues
+
+**Auto-create missing phase directory (if phase exists in ROADMAP):**
+
+**Bash:**
+```bash
+# Auto-create phase directory if ROADMAP has phase but directory missing
+PHASE_NUM=$(echo "$PHASE" | grep -oE '[0-9]+')
+if grep -q "^## Phase $PHASE" ROADMAP.md 2>/dev/null && [ ! -d ".gsd/phases/$PHASE_NUM" ]; then
+    mkdir -p ".gsd/phases/$PHASE_NUM/plans" ".gsd/phases/$PHASE_NUM/artifacts"
+    echo "✅ Auto-created missing phase directory: .gsd/phases/$PHASE_NUM/"
+fi
+```
+
+**PowerShell:**
+```powershell
+# Auto-create phase directory if ROADMAP has phase but directory missing
+$phaseNum = $phase -replace '[^0-9]', ''
+$phaseHeader = "## Phase $phase"
+$phaseInRoadmap = Select-String -Path "ROADMAP.md" -Pattern "^$([regex]::Escape($phaseHeader))" -Quiet
+$phaseDirExists = Test-Path ".gsd/phases/$phaseNum" -PathType Container
+
+if ($phaseInRoadmap -and -not $phaseDirExists) {
+    New-Item -ItemType Directory -Path ".gsd/phases/$phaseNum/plans" -Force | Out-Null
+    New-Item -ItemType Directory -Path ".gsd/phases/$phaseNum/artifacts" -Force | Out-Null
+    Write-Host "✅ Auto-created missing phase directory: .gsd/phases/$phaseNum/"
+}
+```
+
+**Note:** Status/git inconsistencies are NOT auto-fixed — they require manual review.
 
 ---
 

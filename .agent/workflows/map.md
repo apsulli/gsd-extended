@@ -1,5 +1,6 @@
 ---
 description: The Architect — Analyze codebase and update ARCHITECTURE.md and STACK.md
+version: "1.0.0"
 ---
 
 # /map Workflow

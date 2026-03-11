@@ -1,6 +1,7 @@
 ---
 description: Performs code review using the code-reviewer skill
 argument-hint: "[files or scope to review]"
+version: "1.0.0"
 ---
 
 # /code-review Workflow
@@ -14,7 +15,7 @@ Execute the code-reviewer skill to identify bugs, race conditions, and code qual
 </objective>
 
 <context>
-**Scope:** $ARGUMENTS (specific files, or "session" to review all changes in current session)
+**Scope:** $ARGUMENTS (optional - specific files, or "session" to review all changes in current session)
 
 **Skill reference:** `.agent/skills/code-reviewer/SKILL.md`
 

@@ -1,5 +1,6 @@
 ---
 description: Context hygiene — dump state for clean session handoff
+version: "1.0.0"
 ---
 
 # /pause Workflow
@@ -19,7 +20,96 @@ Safely pause work with complete state preservation for session handoff.
 
 <process>
 
-## 1. Capture Current State
+## 1. Acquire Lock
+
+**PowerShell:**
+```powershell
+$lockFile = ".gsd/.lock"
+$maxRetries = 10
+$retryCount = 0
+$resource = "STATE.md,JOURNAL.md"
+$workflow = "/pause"
+
+if (-not (Test-Path ".gsd")) { New-Item -ItemType Directory -Path ".gsd" -Force | Out-Null }
+
+while (Test-Path $lockFile) {
+    $lockContent = Get-Content $lockFile -Raw -ErrorAction SilentlyContinue | ConvertFrom-Json
+    if ($lockContent -and $lockContent.expires) {
+        $expires = [datetime]::Parse($lockContent.expires)
+        if ((Get-Date) -gt $expires) {
+            Write-Warning "Lock expired (held by $($lockContent.workflow)). Stealing lock."
+            break
+        }
+    }
+    $retryCount++
+    if ($retryCount -ge $maxRetries) {
+        Write-Error "Could not acquire lock after ${maxRetries} retries"
+        exit 1
+    }
+    Start-Sleep -Milliseconds 50
+}
+
+@{
+    resource = $resource
+    workflow = $workflow
+    acquired = (Get-Date -Format "o")
+    expires = (Get-Date).AddMinutes(5).ToString("o")
+} | ConvertTo-Json | Set-Content $lockFile -Force
+```
+
+**Bash:**
+```bash
+lock_file=".gsd/.lock"
+max_retries=10
+retry_count=0
+resource="STATE.md,JOURNAL.md"
+workflow="/pause"
+
+[ -d ".gsd" ] || mkdir -p ".gsd"
+
+while [ -f "$lock_file" ]; do
+    if command -v jq >/dev/null 2>&1; then
+        expires=$(jq -r '.expires' "$lock_file" 2>/dev/null)
+        if [ -n "$expires" ] && [ "$expires" != "null" ]; then
+            now=$(date -u +%s)
+            expires_epoch=$(date -u -d "$expires" +%s 2>/dev/null || date -u -j -f "%Y-%m-%dT%H:%M:%SZ" "$expires" +%s 2>/dev/null)
+            if [ -n "$expires_epoch" ] && [ "$now" -gt "$expires_epoch" ]; then
+                lock_workflow=$(jq -r '.workflow' "$lock_file" 2>/dev/null)
+                echo "Warning: Lock expired (held by $lock_workflow). Stealing lock." >&2
+                break
+            fi
+        fi
+    fi
+    retry_count=$((retry_count + 1))
+    if [ $retry_count -ge $max_retries ]; then
+        echo "Error: Could not acquire lock after ${max_retries} retries" >&2
+        exit 1
+    fi
+    sleep 0.05
+done
+
+acquired=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+if date -u -d '+5 minutes' +%Y-%m-%dT%H:%M:%SZ >/dev/null 2>&1; then
+    expires=$(date -u -d '+5 minutes' +%Y-%m-%dT%H:%M:%SZ)
+else
+    expires=$(date -u -v+5M +%Y-%m-%dT%H:%M:%SZ)
+fi
+printf '{"resource":"%s","workflow":"%s","acquired":"%s","expires":"%s"}\n' "$resource" "$workflow" "$acquired" "$expires" > "$lock_file"
+```
+
+---
+
+## 2. Capture Current State
+
+**PowerShell:**
+```powershell
+try {
+```
+
+**Bash:**
+```bash
+trap 'rm -f "$lock_file"' EXIT
+```
 
 Update `.gsd/STATE.md`:
 
@@ -111,6 +201,8 @@ Prepend new entry to top of `.gsd/JOURNAL.md` (after the `# JOURNAL.md` header l
 
 ## 3. Auto-Archive Check
 
+### 3a. Journal Archive Check
+
 Count sessions in `JOURNAL.md`:
 
 ```bash
@@ -118,22 +210,55 @@ grep -c "^## Session:" .gsd/JOURNAL.md
 ```
 
 - **If count > 5**: Run `/archive-journal` now (before committing) to move older entries to `.gsd/journal/YYYY-MM-archive.md`.
-- **If count ≤ 5**: Skip — proceed to commit.
+- **If count ≤ 5**: Skip — proceed to next check.
 
 > This keeps `JOURNAL.md` lean so future sessions load only relevant context.
 
----
+### 3b. Debug Session Cleanup Check
 
-## 4. Commit State
+Check for old debug sessions that need archiving:
 
 ```bash
-git add .gsd/STATE.md .gsd/JOURNAL.md .gsd/journal/
+# Count debug sessions
+debug_count=$(find debugging -maxdepth 1 -type d 2>/dev/null | grep -v "^debugging$" | wc -l)
+
+# Find oldest debug session age (in days)
+oldest_age=0
+if [[ $debug_count -gt 0 ]]; then
+    oldest_age=$(find debugging -maxdepth 1 -type d -mtime +30 2>/dev/null | grep -v "^debugging$" | wc -l)
+fi
+```
+
+- **If debug_count > 10 OR oldest_age > 0**: Run `/cleanup` now to archive old sessions.
+- **Otherwise**: Skip — proceed to commit.
+
+> Old unresolved debug sessions (>30 days) are archived; resolved sessions (with SUMMARY.md) are preserved forever.
+
+**PowerShell:**
+```powershell
+}
+finally {
+    if (Test-Path $lockFile) { Remove-Item $lockFile -Force }
+}
+```
+
+**Bash:**
+```bash
+# Lock released by trap EXIT
+```
+
+---
+
+## 5. Commit State
+
+```bash
+git add .gsd/STATE.md .gsd/JOURNAL.md .gsd/journal/ debugging/archived/
 git commit -m "docs: pause session - {brief reason}"
 ```
 
 ---
 
-## 5. Display Handoff
+## 6. Display Handoff
 
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

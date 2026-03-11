@@ -1,5 +1,6 @@
 ---
 description: Mark current milestone as complete and archive
+version: "1.0.0"
 ---
 
 # /complete-milestone Workflow

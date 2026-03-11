@@ -1,6 +1,7 @@
 ---
 description: The Strategist — Decompose requirements into executable phases in ROADMAP.md
 argument-hint: "[phase] [--research] [--skip-research] [--gaps]"
+version: "1.0.0"
 ---
 
 # /plan-phase Workflow
@@ -25,7 +26,7 @@ Create executable phase prompts (PLAN.md files) for a roadmap phase with integra
 </objective>
 
 <context>
-**Phase number:** $ARGUMENTS (optional — auto-detects next unplanned phase if not provided)
+**Phase number:** $ARGUMENTS (optional - auto-detects next unplanned phase if not provided)
 
 **Flags:**
 - `--research` — Force re-research even if RESEARCH.md exists

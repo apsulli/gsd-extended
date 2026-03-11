@@ -1,5 +1,6 @@
 ---
 description: Create plans to address gaps found in milestone audit
+version: "1.0.0"
 ---
 
 # /plan-milestone-gaps Workflow
