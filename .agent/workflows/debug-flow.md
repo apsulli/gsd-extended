@@ -96,8 +96,11 @@ printf '{"resource":"%s","workflow":"/debug-flow","acquired":"%s","expires":"%s"
 
 ## 3. Ensure Directory Structure
 
+Assign the slug generated in Step 1 to a shell variable, then create the debug directory:
+
 ```bash
 trap 'rm -f "$lock_file"' EXIT
+SLUG="{slug-from-step-1}"   # e.g. "api-auth-timeout"
 DEBUG_DIR=".gsd/debugging/$SLUG"
 mkdir -p "$DEBUG_DIR"
 ```

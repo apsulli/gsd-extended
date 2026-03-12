@@ -96,7 +96,8 @@ Workflows sync from `.agent/workflows/` to agent directories.
 ## 6. Commit
 
 ```bash
-git add -A
+git add .gsd/STACK.md
+git add .claude/ .opencode/ 2>/dev/null || true
 git commit -m "chore: initialize GSD environment"
 ```
 

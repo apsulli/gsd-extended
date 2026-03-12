@@ -11,26 +11,9 @@ Display all available GSD commands with descriptions and usage hints.
 
 <process>
 
-**First, read and display the version:**
-
-**PowerShell:**
-
-```powershell
-$version = Get-Content "VERSION" -ErrorAction SilentlyContinue
-if (-not $version) { $version = "unknown" }
-```
-
-**Bash:**
-
-```bash
-version=$(cat VERSION 2>/dev/null || echo "unknown")
-```
-
-**Then display help with version in header:**
-
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- GSD ► HELP (v{version})
+ GSD ► HELP  (each workflow versioned independently)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 CORE WORKFLOW

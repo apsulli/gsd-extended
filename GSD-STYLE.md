@@ -210,7 +210,7 @@ Use backticks for:
 
 - Must match regex: `^\d+\.\d+\.\d+$`
 - Must be quoted in YAML: `version: "1.2.3"`
-- Must match the VERSION file at repository root
+- Each workflow versions independently — there is no requirement to match the root `VERSION` file
 
 ---
 
@@ -222,7 +222,7 @@ The optional `<related>` section links to other workflows.
 
 ```markdown
 <related>
-- [Workflow Name](../path/to/workflow.gsd.md)
+- [Workflow Name](../path/to/workflow.md)
 - [Another Workflow](../another/path.gsd.md)
 </related>
 ```
@@ -237,8 +237,8 @@ The optional `<related>` section links to other workflows.
 
 ## File Naming Conventions
 
-- Use kebab-case: `my-workflow.gsd.md`
-- Extension: `.gsd.md` (indicates GSD workflow in Markdown)
+- Use kebab-case: `my-workflow.md`
+- Extension: `.md` (plain Markdown, consistent with all existing workflows)
 - Avoid spaces and special characters
 - Be descriptive but concise
 

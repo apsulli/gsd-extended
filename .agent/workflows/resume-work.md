@@ -49,7 +49,7 @@ Write-Host "Phase: $phase, Status: $status, Last Action: $lastAction"
 **Bash:**
 ```bash
 # Check if phase exists in ROADMAP.md
-if ! grep -q "^## Phase $PHASE" ROADMAP.md 2>/dev/null; then
+if ! grep -q "^## Phase $PHASE" .gsd/ROADMAP.md 2>/dev/null; then
     echo "INCONSISTENCY: Phase $PHASE in STATE.md not found in ROADMAP.md"
 fi
 ```
@@ -58,7 +58,7 @@ fi
 ```powershell
 # Check if phase exists in ROADMAP.md
 $phaseHeader = "## Phase $phase"
-$phaseExists = Select-String -Path "ROADMAP.md" -Pattern "^$([regex]::Escape($phaseHeader))" -Quiet
+$phaseExists = Select-String -Path ".gsd/ROADMAP.md" -Pattern "^$([regex]::Escape($phaseHeader))" -Quiet
 if (-not $phaseExists) {
     Write-Host "INCONSISTENCY: Phase $phase in STATE.md not found in ROADMAP.md"
 }
@@ -155,8 +155,8 @@ Recommend: /status to see full state, or manually fix inconsistencies
 ```bash
 # Auto-create phase directory if ROADMAP has phase but directory missing
 PHASE_NUM=$(echo "$PHASE" | grep -oE '[0-9]+')
-if grep -q "^## Phase $PHASE" ROADMAP.md 2>/dev/null && [ ! -d ".gsd/phases/$PHASE_NUM" ]; then
-    mkdir -p ".gsd/phases/$PHASE_NUM/plans" ".gsd/phases/$PHASE_NUM/artifacts"
+if grep -q "^## Phase $PHASE" .gsd/ROADMAP.md 2>/dev/null && [ ! -d ".gsd/phases/$PHASE_NUM" ]; then
+    mkdir -p ".gsd/phases/$PHASE_NUM"
     echo "✅ Auto-created missing phase directory: .gsd/phases/$PHASE_NUM/"
 fi
 ```
@@ -166,12 +166,11 @@ fi
 # Auto-create phase directory if ROADMAP has phase but directory missing
 $phaseNum = $phase -replace '[^0-9]', ''
 $phaseHeader = "## Phase $phase"
-$phaseInRoadmap = Select-String -Path "ROADMAP.md" -Pattern "^$([regex]::Escape($phaseHeader))" -Quiet
+$phaseInRoadmap = Select-String -Path ".gsd/ROADMAP.md" -Pattern "^$([regex]::Escape($phaseHeader))" -Quiet
 $phaseDirExists = Test-Path ".gsd/phases/$phaseNum" -PathType Container
 
 if ($phaseInRoadmap -and -not $phaseDirExists) {
-    New-Item -ItemType Directory -Path ".gsd/phases/$phaseNum/plans" -Force | Out-Null
-    New-Item -ItemType Directory -Path ".gsd/phases/$phaseNum/artifacts" -Force | Out-Null
+    New-Item -ItemType Directory -Path ".gsd/phases/$phaseNum" -Force | Out-Null
     Write-Host "✅ Auto-created missing phase directory: .gsd/phases/$phaseNum/"
 }
 ```

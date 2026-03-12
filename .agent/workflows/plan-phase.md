@@ -357,10 +357,11 @@ File names:
 | Type | Use For | Autonomy |
 |------|---------|----------|
 | `auto` | Everything Claude can do independently | Fully autonomous |
-| `checkpoint:human-verify` | Visual/functional verification | Pauses for user |
-| `checkpoint:decision` | Implementation choices | Pauses for user |
+| `checkpoint:human-verify` | Visual/functional verification needed | Pauses for user |
+| `checkpoint:decision` | Implementation choices needed | Pauses for user |
+| `checkpoint:human-action` | Truly unavoidable manual steps (rare) | Pauses for user |
 
-**Automation-first rule:** If Claude CAN do it, Claude MUST do it. Checkpoints are for verification AFTER automation.
+**Automation-first rule:** If Claude CAN do it, Claude MUST do it. Checkpoints are for verification AFTER automation. `checkpoint:human-action` should be used sparingly — only for steps that literally cannot be automated (e.g. hardware setup, third-party OAuth flows).
 
 </task_types>
 

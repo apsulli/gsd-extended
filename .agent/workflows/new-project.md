@@ -69,7 +69,7 @@ This is the most leveraged moment in any project. Deep questioning here means be
        Where-Object { $_.FullName -notmatch "node_modules|\.git" } | 
        Select-Object -First 20
    
-   $hasPackage = Test-Path "package.json" -or Test-Path "requirements.txt" -or Test-Path "Cargo.toml"
+   $hasPackage = (Test-Path "package.json") -or (Test-Path "requirements.txt") -or (Test-Path "Cargo.toml")
    $hasArchitecture = Test-Path ".gsd/ARCHITECTURE.md"
    ```
 

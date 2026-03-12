@@ -1,5 +1,7 @@
 ---
 description: Archive old JOURNAL.md entries to keep context slim
+version: "1.0.0"
+tags: ['session', 'journal', 'archive']
 ---
 
 # /archive-journal Workflow
@@ -50,10 +52,10 @@ All content from `ARCHIVE_LINE` to end of file will be archived.
 
 ## 3. Determine Archive Filename
 
-From the 6th session header, extract the year-month (e.g., `## Session: 2026-02-17 ...` → `2026-02`):
+From the 6th (oldest) session being archived, extract the year-month. Since JOURNAL.md is reverse chronological, the entries being archived are at the bottom — get the date from the **last** `## Session:` line in the file (e.g., `## Session: 2026-02-17 ...` → `2026-02`):
 
 ```bash
-grep -m 1 "^## Session:" .gsd/JOURNAL.md | grep -oE "[0-9]{4}-[0-9]{2}"
+grep "^## Session:" .gsd/JOURNAL.md | tail -1 | grep -oE "[0-9]{4}-[0-9]{2}"
 ```
 
 > **Note:** If entries span multiple months, use the month of the _oldest_ entry being archived (last `## Session:` line in the file). Create separate archive files per month if needed.
@@ -86,7 +88,7 @@ sed -n '{ARCHIVE_LINE},$p' .gsd/JOURNAL.md > /tmp/new_entries.md
 # Prepend to existing archive after the header (or create new if doesn't exist)
 if [ -f ".gsd/journal/YYYY-MM-archive.md" ]; then
     # Find line number of first '---' after header, insert new entries after it
-    local header_end_line=$(grep -n "^---$" .gsd/journal/YYYY-MM-archive.md | head -1 | cut -d: -f1)
+    header_end_line=$(grep -n "^---$" .gsd/journal/YYYY-MM-archive.md | head -1 | cut -d: -f1)
     if [ -n "$header_end_line" ]; then
         head -n $header_end_line .gsd/journal/YYYY-MM-archive.md > /tmp/header.md
         tail -n +$((header_end_line + 1)) .gsd/journal/YYYY-MM-archive.md > /tmp/existing.md
@@ -98,7 +100,7 @@ if [ -f ".gsd/journal/YYYY-MM-archive.md" ]; then
     fi
 else
     # First time archiving - create new archive with header
-    mv /tmp_new_entries.md .gsd/journal/YYYY-MM-archive.md
+    mv /tmp/new_entries.md .gsd/journal/YYYY-MM-archive.md
 fi
 ```
 

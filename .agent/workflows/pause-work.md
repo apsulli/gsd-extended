@@ -1,5 +1,7 @@
 ---
 description: Context hygiene — dump state for clean session handoff
+version: "1.0.0"
+tags: ['session', 'state', 'handoff']
 ---
 
 # /pause Workflow

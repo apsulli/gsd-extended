@@ -392,14 +392,7 @@ finally {
 ## 8. Commit Verification
 
 ```bash
-# Archive old verification if exists
-if test -f ".gsd/phases/{phase}/VERIFICATION.md"; then
-    ARCHIVE_FILE=".gsd/phases/{phase}/VERIFICATION-HISTORY.md"
-    echo -e "\n---\n\n## Verification Entry $(date +%Y-%m-%d)\n" >> "$ARCHIVE_FILE"
-    cat ".gsd/phases/{phase}/VERIFICATION.md" >> "$ARCHIVE_FILE"
-fi
-
-# Commit new verification
+# Commit new verification (archiving already done in Step 1)
 git add .gsd/phases/{phase}/VERIFICATION.md
 git add .gsd/phases/{phase}/VERIFICATION-HISTORY.md 2>/dev/null || true
 git commit -m "docs(phase-{N}): verification report run {run_number}"
