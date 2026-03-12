@@ -117,10 +117,10 @@ Count sessions in `JOURNAL.md`:
 grep -c "^## Session:" .gsd/JOURNAL.md
 ```
 
-- **If count > 5**:
+- **If count > 5**: 
   - **Execute the `/archive-journal` command** (do NOT implement archiving manually)
-  - The `/archive-journal` command properly appends to existing archives (using `>>`), preserving previously archived entries
-  - Manual awk/sed commands with `>` will overwrite and corrupt archive files
+  - The `/archive-journal` command prepends entries to the top of archive files, maintaining **reverse chronological order** (newest first)
+  - Manual awk/sed commands may corrupt archive file ordering or overwrite existing entries
 - **If count ≤ 5**: Skip — proceed to commit.
 
 > This keeps `JOURNAL.md` lean so future sessions load only relevant context.

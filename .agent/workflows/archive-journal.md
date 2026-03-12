@@ -1,6 +1,5 @@
 ---
 description: Archive old JOURNAL.md entries to keep context slim
-version: "1.0.0"
 ---
 
 # /archive-journal Workflow
@@ -63,7 +62,9 @@ Archive filename: `.gsd/journal/YYYY-MM-archive.md`
 
 ---
 
-## 4. Append to Archive File
+## 4. Prepend to Archive File (Reverse Chronological Order)
+
+Archives maintain **reverse chronological order** (newest entries at the top), consistent with JOURNAL.md.
 
 If the archive file does not exist, create it with a header:
 
@@ -76,12 +77,32 @@ Archived from `.gsd/JOURNAL.md` on {today's date}.
 ---
 ```
 
-Then append the entries being archived:
+Then prepend the entries being archived to the top (after the header):
 
 ```bash
-# Append archived sessions to the archive file
-sed -n '{ARCHIVE_LINE},$p' .gsd/JOURNAL.md >> .gsd/journal/YYYY-MM-archive.md
+# Extract entries to archive
+sed -n '{ARCHIVE_LINE},$p' .gsd/JOURNAL.md > /tmp/new_entries.md
+
+# Prepend to existing archive after the header (or create new if doesn't exist)
+if [ -f ".gsd/journal/YYYY-MM-archive.md" ]; then
+    # Find line number of first '---' after header, insert new entries after it
+    local header_end_line=$(grep -n "^---$" .gsd/journal/YYYY-MM-archive.md | head -1 | cut -d: -f1)
+    if [ -n "$header_end_line" ]; then
+        head -n $header_end_line .gsd/journal/YYYY-MM-archive.md > /tmp/header.md
+        tail -n +$((header_end_line + 1)) .gsd/journal/YYYY-MM-archive.md > /tmp/existing.md
+        cat /tmp/header.md /tmp/new_entries.md /tmp/existing.md > .gsd/journal/YYYY-MM-archive.md
+    else
+        # No header separator found, just prepend
+        cat /tmp/new_entries.md .gsd/journal/YYYY-MM-archive.md > /tmp/combined.md
+        mv /tmp/combined.md .gsd/journal/YYYY-MM-archive.md
+    fi
+else
+    # First time archiving - create new archive with header
+    mv /tmp_new_entries.md .gsd/journal/YYYY-MM-archive.md
+fi
 ```
+
+> **Why after the header?** Archive files have a header (`# Journal Archive — March 2026`). New entries are prepended after the header to maintain reverse chronological order while preserving the header at the top.
 
 ---
 
@@ -155,7 +176,7 @@ To search historical sessions:
 ## Rules
 
 - **JOURNAL.md** is the ONLY file that workflows auto-load. Keep it ≤ 5 sessions.
-- Archive files are **append-only** — never edit them.
+- Archive files are **prepend-only** — new entries go at the top to maintain reverse chronological order.
 - If entries span month boundaries, split into separate archive files by month.
 
 </archive_structure>
