@@ -130,28 +130,56 @@ If ROADMAP.md was modified within the last 30 seconds, **STOP** and report. Do n
 
 ---
 
-## 6. Fill Gaps — Interview for Missing Fields Only
+## 6. Fill Gaps — Sequential Interview for Missing Fields
 
 If all fields are already known from arguments, skip this step entirely.
 
-Otherwise, state what is already resolved, then ask for only the missing fields in a **single message**:
+Otherwise, ask for each missing field **one at a time**, waiting for the user's reply before moving to the next. Do not bundle multiple questions into one message.
 
+Interview order and question text:
+
+1. **Position** (only if `insert_position` is nil):
+   ```
+   📍 Where should the new phase be inserted?
+   Options: next (after phase {current_phase}) | last (end of roadmap) | N (before phase N) | N-M (between phases)
+   ```
+   Parse the reply and validate it is in range `[1, total_phases + 1]`. If invalid, re-ask.
+
+2. **Title** (only if `title` is nil):
+   ```
+   What is the title of the new phase?
+   ```
+
+3. **Objective** (always ask):
+   ```
+   What is the objective of Phase {insert_position}: {title}?
+   (What does this phase achieve?)
+   ```
+
+4. **Deliverables** (always ask):
+   ```
+   What are the deliverables for this phase?
+   (Concrete, verifiable outputs)
+   ```
+
+5. **Dependencies** (always ask):
+   ```
+   Does this phase depend on any other phases?
+   (Enter phase numbers, or "none")
+   ```
+
+After all fields are collected, confirm before proceeding:
 ```
-📋 NEW PHASE DETAILS
+✅ Ready to insert:
+  Position:     Phase {insert_position}
+  Title:        {title}
+  Objective:    {objective}
+  Deliverables: {deliverables}
+  Dependencies: {dependencies}
 
-Already provided:
-  Position: {insert_position, or "not yet set"}
-  Title:    {title, or "not yet set"}
-
-Please provide the following:
-  • Position (next / last / N / N-M):      ← omit if already set
-  • Phase title:                            ← omit if already set
-  • Objective (what this phase achieves):
-  • Deliverables (concrete outputs):
-  • Dependencies (phase numbers, or "none"):
+Proceed? (yes / no)
 ```
-
-Wait for the user's reply and parse all values. Validate `insert_position` is in range `[1, total_phases + 1]` — if out of range, report and re-ask before proceeding.
+If the user says no, ask which field to change and re-ask that field before re-confirming.
 
 ---
 
