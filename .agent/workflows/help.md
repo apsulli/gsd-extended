@@ -1,6 +1,6 @@
 ---
 description: Show all available GSD commands
-version: "1.0.0"
+version: "1.1.0"
 ---
 
 # /help Workflow
@@ -43,6 +43,7 @@ PHASE MANAGEMENT
 
 NAVIGATION & STATE
 ──────────────────
+/status           Unified view: roadmap, phases, todos, git status
 /progress         Show current position in roadmap
 /pause            Save state for session handoff
 /resume-work      Restore from last session
@@ -52,7 +53,19 @@ NAVIGATION & STATE
 
 UTILITIES
 ─────────
+/code-review      Code review for current changes or specified scope
+/web-search       Search the web to inform decisions
+/cleanup          Clean up old debug sessions and archived journal entries
 /help             Show this help
+
+WORKFLOW MANAGEMENT
+───────────────────
+/gsd-init         Initialize GSD environment and verify project setup
+/update           Update GSD to the latest version
+/whats-new        Show recent GSD changes and new features
+/add-workflow     Create new workflows, auto-sync to agent environments
+/delete-workflow  Archive workflows, remove from agent environments
+/restore-workflow Restore previously archived workflows
 
 ───────────────────────────────────────────────────────
 

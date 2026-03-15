@@ -32,11 +32,10 @@ And **stop**.
 
 ## 2. Read JOURNAL.md Fully
 
-Read the entire JOURNAL.md into memory using the Read tool. You need to know:
-- The header line (line 1: `# JOURNAL.md — Ritzy and the Feather`)
-- Where each `## Session:` block starts
-- Which sessions to keep (first 5) and which to archive (6th onward)
-- Whether an archive footer already exists at the bottom
+JOURNAL.md is **reverse-chronological** — the most recent session is at the top. Read the entire file using the Read tool. Note:
+- The header line (line 1)
+- Which sessions to keep (top 5) and which to archive (everything from the 6th `## Session:` heading to end-of-file)
+- Whether an archive footer exists at the bottom
 
 ---
 
@@ -44,19 +43,13 @@ Read the entire JOURNAL.md into memory using the Read tool. You need to know:
 
 Find the line where the **6th** `## Session:` heading begins. Everything from that line to the end of the file (excluding the archive footer if present) will be archived.
 
-**Archive footer** to strip if present:
-```markdown
----
-
-> **📦 Older entries archived** — See `.gsd/journal/` for historical sessions.
-> Run `/archive-journal` to archive when this file grows beyond 5 sessions.
-```
+**Archive footer** — strip if present. Identify by structure: a `---` separator near the end of the file followed by a blockquote containing `📦 Older entries archived`. Strip from that `---` to end-of-file.
 
 ---
 
 ## 4. Determine Archive Filename
 
-Extract the year-month from the **oldest** session being archived (the last `## Session:` line among the entries being moved). Example: `## Session: 2026-03-13 (...)` → `2026-03`.
+Extract the year-month from the **last** `## Session:` heading in the archived block (the bottommost entry in the file — it is the oldest). Example: `## Session: 2026-03-13 (...)` → `2026-03`.
 
 Archive filename: `.gsd/journal/YYYY-MM-archive.md`
 
@@ -79,19 +72,25 @@ Write a new file with this structure:
 
 ### If archive file ALREADY exists:
 
-1. **Read the existing archive file** fully using the Read tool
-2. Construct the new file content as:
-   - Line 1: The existing header line (`# Journal Archive — ...`)
-   - Line 2: blank line
-   - Then: the new entries being archived (these are newer, so they go first)
-   - Then: the existing entries (everything after the header line from the old file)
-3. **Write** the complete file using the Write tool
+1. **Read the existing archive file** fully using the Read tool.
+2. Construct the new file with this exact layout:
 
-> **Why this order?** Archives are reverse chronological (newest first), matching JOURNAL.md convention. New entries are always more recent than existing archive entries.
+   ```
+   [header line]          ← existing, unchanged
+   [blank line]
+   [new entries]          ← the archived block from JOURNAL.md
+   [existing entries]     ← everything after the header in the old archive
+   ```
+
+3. **Write** the complete file using the Write tool.
 
 ### Verification after writing:
 
-Count `## Session:` lines in the updated archive file. The count should equal (previous count + number of entries archived). If it doesn't match, **STOP and report the discrepancy** — do not proceed.
+Verify the updated archive file:
+- `## Session:` count = (previous archive count + number of entries just archived)
+- The first content line after the header is a `## Session:` line (catches header duplication or misaligned prepend)
+
+If either check fails, **STOP and report** — do not proceed.
 
 ---
 
@@ -111,7 +110,14 @@ Use the **Write tool** to write the trimmed JOURNAL.md with:
 
 ### Verification after writing:
 
-Count `## Session:` lines in the new JOURNAL.md. Must be exactly 5 (or fewer if the original had fewer than 5 + entries to archive). If wrong, **STOP and report**.
+Verify the trimmed JOURNAL.md:
+- `## Session:` count = exactly 5 (or fewer if original total was < 5 + archived count)
+- First content line after the header is a `## Session:` line
+- File ends with the archive footer block
+
+If any check fails, **STOP and report** — do not commit.
+
+> **Partial failure guard**: If the archive write succeeded but this JOURNAL.md write fails, do NOT retry blindly. Re-read both files, identify which sessions appear in each, resolve any duplication, then rewrite.
 
 ---
 

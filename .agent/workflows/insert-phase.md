@@ -1,20 +1,21 @@
 ---
 description: Insert a new phase — supports positional args or interactive interview
-version: "1.1.0"
+version: "1.2.0"
 tags: ['roadmap', 'phases', 'planning']
 ---
 
 # /insert-phase Workflow
 
 <objective>
-Insert a new phase into the roadmap. Accepts an optional position argument; falls back to interactive interview.
+Insert a new phase into the roadmap. Accepts optional position and title arguments; interviews for any missing fields.
 
 **Argument forms:**
 - `/insert-phase next` — after the current active phase
 - `/insert-phase last` — at the end of the roadmap (same as `/add-phase`)
 - `/insert-phase 15-16` or `/insert-phase 15 16` — between phases 15 and 16 (inserts at position 16)
 - `/insert-phase 5` — insert before phase 5 (i.e., at position 5)
-- `/insert-phase` (no args) — interactive: prompts for position
+- `/insert-phase next "Security Hardening"` — position + title both pre-filled
+- `/insert-phase` (no args) — interview for all required fields
 
 Renumbers subsequent phases to maintain timeline integrity.
 </objective>
@@ -69,19 +70,15 @@ if [ -f ".gsd/STATE.md" ]; then
         elapsed=$(( ($(date +%s) - start_ts) / 60 ))
         if [ "$elapsed" -lt 5 ]; then
             wf=$(grep -oP '\*\*Workflow\*\*:\s*\K\S+' .gsd/STATE.md 2>/dev/null || echo "unknown")
-            echo "⚠️  CONCURRENT OPERATION: $pending_id ($wf, ${elapsed}m ago)"
-            echo "A) Wait  B) Force continue  C) Cancel"
-            read -p "Choice: " choice
-            case "${choice^^}" in
-                A) echo "Retry when other operation completes."; exit 0 ;;
-                B) echo "Warning: force continuing — manual merge may be required." ;;
-                C) echo "Cancelled."; exit 0 ;;
-                *) echo "Invalid choice." >&2; exit 1 ;;
-            esac
+            echo "⚠️  CONCURRENT OPERATION DETECTED: $pending_id ($wf, ${elapsed}m ago)"
+            echo "Resolve the pending operation before running /insert-phase."
+            exit 1
         fi
     fi
 fi
 ```
+
+If a concurrent operation is active (< 5 minutes old), **STOP** and report to the user. Do not prompt — manual resolution is required.
 
 ---
 
@@ -98,184 +95,161 @@ total_phases=$(grep -c "### Phase [0-9]" .gsd/ROADMAP.md)
 
 ---
 
-## 4. Parse Arguments → Resolve Insert Position
+## 4. Parse Arguments → Resolve Position and Title
 
-Inspect the arguments passed to the workflow. If recognized, set `insert_position` and skip step 5.
+Split the argument string: the **first whitespace-delimited token** is the position specifier; **everything after it** (stripped of surrounding quotes) is the title. Both are optional.
 
-```bash
-arg="$*"   # all arguments as a single string
+Resolve `insert_position` from the position token:
 
-if [ -z "$arg" ]; then
-    insert_position=""   # no args — will prompt in step 5
+| Token | Result |
+|-------|--------|
+| (empty) | `insert_position = nil` — will ask in step 5 |
+| `next` (case-insensitive) | `insert_position = current_phase + 1` |
+| `last` (case-insensitive) | `insert_position = total_phases + 1` |
+| `N-M` or `N M` (two numbers) | `insert_position = max(N, M)` |
+| `N` (single number) | `insert_position = N` |
+| anything else | **STOP** — print valid argument forms and exit |
 
-elif echo "$arg" | grep -qiE '^next$'; then
-    insert_position=$((current_phase + 1))
-
-elif echo "$arg" | grep -qiE '^last$'; then
-    insert_position=$((total_phases + 1))
-
-elif echo "$arg" | grep -qE '^([0-9]+)[- ]([0-9]+)$'; then
-    # "15-16" or "15 16" → insert at the higher number
-    insert_position=$(echo "$arg" | grep -oE '[0-9]+' | tail -1)
-
-elif echo "$arg" | grep -qE '^[0-9]+$'; then
-    # bare number → insert before that phase number
-    insert_position=$arg
-
-else
-    echo "Error: Unrecognized argument '$arg'" >&2
-    echo "Valid: next | last | N | N-M | N M" >&2
-    exit 1
-fi
-```
+Set `title = remainder` if non-empty, otherwise `title = nil`.
 
 ---
 
-## 5. Interview User for Position (only if no args)
-
-Skip entirely if `insert_position` is already set from step 4.
-
-```
-📍 WHERE SHOULD THE NEW PHASE BE INSERTED?
-
-Current active phase: Phase {N}  |  Total phases: {M}
-
-1) NEXT    — insert after Phase {N}
-2) BETWEEN — insert at a specific position
-3) LAST    — add at the end
-
-Your choice (1/2/3):
-```
-
-```bash
-if [ -z "$insert_position" ]; then
-    read -p "Your choice (1/2/3): " choice
-    case "$choice" in
-        1) insert_position=$((current_phase + 1)) ;;
-        2) read -p "Insert before which phase number? " insert_position ;;
-        3) insert_position=$((total_phases + 1)) ;;
-        *) echo "Error: Invalid choice" >&2; exit 1 ;;
-    esac
-fi
-
-# Validate range
-if [ "$insert_position" -lt 1 ] || [ "$insert_position" -gt $((total_phases + 1)) ]; then
-    echo "Error: Position $insert_position out of range (1–$((total_phases + 1)))" >&2; exit 1
-fi
-```
-
----
-
-## 6. Gather Phase Information
-
-```
-📋 NEW PHASE DETAILS — inserting at position {insert_position}
-
-1. Phase Title:
-2. Objective (what this phase achieves):
-3. Deliverables (concrete outputs):
-4. Dependencies (comma-separated phase numbers, or "none"):
-```
-
----
-
-## 7. Register Pending Operation in STATE.md
-
-```bash
-timestamp=$(date +%Y-%m-%dT%H:%M:%S)
-sed -i '' '/## Pending Operation/,/^## /{ /^## Pending Operation/d; /^- \*\*/d; /^$/d; }' .gsd/STATE.md 2>/dev/null || true
-printf '\n\n## Pending Operation\n- **ID**: %s\n- **Workflow**: /insert-phase\n- **Started**: %s\n- **Status**: in-progress\n' \
-    "$OPERATION_ID" "$timestamp" >> .gsd/STATE.md
-```
-
----
-
-## 8. Check ROADMAP.md for Recent Modifications
+## 5. Check ROADMAP.md for Recent Modifications
 
 ```bash
 modified_ts=$(stat -f %m .gsd/ROADMAP.md 2>/dev/null || stat -c %Y .gsd/ROADMAP.md)
 time_since=$(( $(date +%s) - modified_ts ))
 if [ "$time_since" -lt 30 ]; then
-    read -p "Warning: ROADMAP.md modified ${time_since}s ago. Continue? (y/N): " choice
-    [ "$choice" != "y" ] && [ "$choice" != "Y" ] && { echo "Cancelled."; exit 0; }
+    echo "⚠️  ROADMAP.md was modified ${time_since}s ago."
+    echo "Resolve any in-progress edits before inserting a phase."
+    exit 1
 fi
+```
+
+If ROADMAP.md was modified within the last 30 seconds, **STOP** and report. Do not continue.
+
+---
+
+## 6. Fill Gaps — Interview for Missing Fields Only
+
+If all fields are already known from arguments, skip this step entirely.
+
+Otherwise, state what is already resolved, then ask for only the missing fields in a **single message**:
+
+```
+📋 NEW PHASE DETAILS
+
+Already provided:
+  Position: {insert_position, or "not yet set"}
+  Title:    {title, or "not yet set"}
+
+Please provide the following:
+  • Position (next / last / N / N-M):      ← omit if already set
+  • Phase title:                            ← omit if already set
+  • Objective (what this phase achieves):
+  • Deliverables (concrete outputs):
+  • Dependencies (phase numbers, or "none"):
+```
+
+Wait for the user's reply and parse all values. Validate `insert_position` is in range `[1, total_phases + 1]` — if out of range, report and re-ask before proceeding.
+
+---
+
+## 7. Register Pending Operation in STATE.md
+
+Read `.gsd/STATE.md` using the Read tool. Use the Edit tool to replace any existing `## Pending Operation` block with the following, or append it if absent:
+
+```markdown
+## Pending Operation
+- **ID**: {OPERATION_ID}
+- **Workflow**: /insert-phase
+- **Started**: {timestamp}
+- **Status**: in-progress
 ```
 
 ---
 
-## 9. Renumber Existing Phases (reverse order to avoid collisions)
+## 8. Renumber Existing Phases and Insert New Phase
+
+Read `.gsd/ROADMAP.md` fully using the Read tool. Perform all modifications in memory, then write the complete result using the Write tool.
+
+### 8a. Renumber
+
+Working from the largest phase number down to `insert_position`, in the in-memory content:
+- Replace each `### Phase N:` heading where `N >= insert_position` with `### Phase {N+1}:`
+- Replace each `Depends on: Phase N` where `N >= insert_position` with `Depends on: Phase {N+1}`
+
+Processing largest-to-smallest prevents double-incrementing (e.g., phase 5 → 6 before phase 4 → 5).
+
+### 8b. Insert
+
+Construct the new phase block:
+
+```markdown
+### Phase {insert_position}: {title}
+**Status:** ⬜ Not Started
+**Objective:** {objective}
+**Deliverables:** {deliverables}
+**Dependencies:** {dependencies}
+
+**Plans:**
+- [ ] Plan {insert_position}.1: [To be defined]
+
+---
+```
+
+Insert it at the correct location in the in-memory content:
+- If `insert_position == 1`: insert before the first `### Phase` heading (after any roadmap header).
+- Otherwise: insert immediately after the `---` separator that closes `### Phase {insert_position - 1}`.
+
+Write the complete modified content using the Write tool.
+
+### 8c. Verify
+
+Count `### Phase` headings in the written file. Must equal `total_phases + 1`. If not, **STOP and report** — do not proceed.
+
+### 8d. Rename Phase Directories (if applicable)
 
 ```bash
 for i in $(seq $total_phases -1 $insert_position); do
-    sed -i '' "s/### Phase $i\b/### Phase $((i + 1))/g" .gsd/ROADMAP.md
-    sed -i '' "s/Depends on: Phase $i\b/Depends on: Phase $((i + 1))/g" .gsd/ROADMAP.md
     [ -d ".gsd/phases/$i" ] && mv ".gsd/phases/$i" ".gsd/phases/$((i + 1))"
 done
 ```
 
 ---
 
-## 10. Insert New Phase Block
+## 9. Update STATE.md Current Phase (if displaced)
 
-```bash
-new_phase="### Phase $insert_position: $title
-**Status:** ⬜ Not Started
-**Objective:** $objective
-**Deliverables:** $deliverables
-**Dependencies:** $dependencies
-
-**Plans:**
-- [ ] Plan ${insert_position}.1: [To be defined]
-
----"
-
-if [ "$insert_position" -eq 1 ]; then
-    printf '%s\n\n' "$new_phase" | cat - .gsd/ROADMAP.md > .gsd/ROADMAP.md.tmp \
-        && mv .gsd/ROADMAP.md.tmp .gsd/ROADMAP.md
-else
-    prev=$((insert_position - 1))
-    awk -v p="$prev" -v n="$new_phase" '
-        /^### Phase / { if (found) { print n; found=0 } }
-        /^### Phase / && $3 == p":" { found=1 }
-        { print }
-        END { if (found) print n }
-    ' .gsd/ROADMAP.md > .gsd/ROADMAP.md.tmp && mv .gsd/ROADMAP.md.tmp .gsd/ROADMAP.md
-fi
-```
+If `current_phase >= insert_position`, use the Edit tool to update `Current Phase: {current_phase}` → `Current Phase: {current_phase + 1}` in STATE.md.
 
 ---
 
-## 11. Update STATE.md Current Phase (if displaced)
+## 10. Complete Operation
 
-```bash
-if [ "$current_phase" -ge "$insert_position" ]; then
-    sed -i '' "s/Current Phase[: ]\+$current_phase/Current Phase: $((current_phase + 1))/" .gsd/STATE.md
-fi
+Use the Edit tool to replace the `## Pending Operation` block in STATE.md with:
+
+```markdown
+## Last Operation
+- **ID**: {OPERATION_ID}
+- **Workflow**: /insert-phase
+- **Completed**: {timestamp}
+- **Status**: completed
 ```
+
+Lock is released automatically by the `trap EXIT` registered in step 1.
 
 ---
 
-## 12. Complete Operation
-
-```bash
-sed -i '' '/## Pending Operation/,/^## /{/^## Pending Operation/d; /^- \*\*/d; /^$/d;}' .gsd/STATE.md 2>/dev/null || true
-printf '\n\n## Last Operation\n- **ID**: %s\n- **Workflow**: /insert-phase\n- **Completed**: %s\n- **Status**: completed\n' \
-    "$OPERATION_ID" "$(date +%Y-%m-%dT%H:%M:%S)" >> .gsd/STATE.md
-# Lock released automatically by trap EXIT
-```
-
----
-
-## 13. Commit
+## 11. Commit
 
 ```bash
 git add .gsd/ROADMAP.md .gsd/STATE.md
-git commit -m "docs: insert Phase $insert_position - $title (renumbered phases $insert_position+)"
+git commit -m "docs: insert Phase {insert_position} - {title} (renumbered phases {insert_position}+)"
 ```
 
 ---
 
-## 14. Display Result
+## 12. Display Result
 
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
