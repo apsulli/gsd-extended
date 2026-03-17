@@ -111,23 +111,12 @@ Prepend new entry to top of `.gsd/JOURNAL.md` (after the `# JOURNAL.md` header l
 
 ---
 
-## 3. Auto-Archive Check
+## 3. Journal Size Check
 
-Count sessions in `JOURNAL.md`:
+Count sessions in `JOURNAL.md` using the Grep tool (count `^## Session:` lines). Report the count to the user in the handoff display (step 5).
 
-```bash
-grep -c "^## Session:" .gsd/JOURNAL.md
-```
-
-- **If count > 5**: 
-  - **Execute the `/archive-journal` command** (do NOT implement archiving manually)
-  - The `/archive-journal` command prepends entries to the top of archive files, maintaining **reverse chronological order** (newest first)
-  - Manual awk/sed commands may corrupt archive file ordering or overwrite existing entries
-- **If count ≤ 5**: Skip — proceed to commit.
-
-> This keeps `JOURNAL.md` lean so future sessions load only relevant context.
-
-**⚠️ Critical**: Never implement journal archiving manually. Always invoke `/archive-journal` to prevent archive file corruption (overwriting existing entries).
+- **If count > 10**: Recommend the user run `/archive-journal` to slim down the journal.
+- **If count ≤ 10**: No action needed — proceed to commit.
 
 ---
 
@@ -150,6 +139,9 @@ git commit -m "docs: pause session - {brief reason}"
 State saved to:
 • .gsd/STATE.md
 • .gsd/JOURNAL.md
+
+Journal: {N} sessions in JOURNAL.md
+{If N > 10: "⚠️  Consider running /archive-journal to slim down the journal."}
 
 ───────────────────────────────────────────────────────
 
